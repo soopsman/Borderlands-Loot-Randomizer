@@ -9,9 +9,10 @@ from .defines import *
 from . import options, items, hints, enemies, missions
 from .locations import Location
 from .items import ItemPool
+from .github import Github
 
 from base64 import b32encode, b32decode
-import random, os, importlib
+import random, os, importlib, threading
 
 from typing import List, Optional, Sequence
 from types import ModuleType
@@ -215,6 +216,7 @@ class Seed:
 
         version_tags: Tag = self.version_module.Tags
 
+        fullContent = ''
         with open(path, "w", encoding="utf-8") as file:
             item_warning = (
                 " (not all accessible)"
@@ -227,6 +229,11 @@ class Seed:
                 f"Total locations: {len(self.locations)}\n"
                 f"Total items: {self.item_count}{item_warning}\n\n"
             )
+
+            fullContent += f"Loot Randomizer Seed {self.string}\n\n"
+            fullContent += f"Total locations: {len(self.locations)}\n"
+            fullContent += f"Total items: {self.item_count}{item_warning}\n\n"
+
             for tag in TagList:
                 if tag not in version_tags:
                     continue
@@ -236,6 +243,7 @@ class Seed:
                     file.write(
                         f"{tag.caption}: {'On' if (tag in self.tags) else 'Off'}\n"
                     )
+                    fullContent += f"{tag.caption}: {'On' if (tag in self.tags) else 'Off'}\n"
 
             for tag in TagList:
                 if not tag & ContentTags & self.tags:
@@ -250,9 +258,13 @@ class Seed:
                     continue
 
                 file.write(f"\n{tag.content_title}\n")
+                fullContent += f"\n{tag.content_title}\n"
 
                 for location in locations:
                     file.write(f"{location}\n")
+                    fullContent += f"{location}\n"
+        
+        self.update_gist(fullContent)
 
         return path
 
@@ -288,6 +300,7 @@ class Seed:
                 lines[index] = full_log if log_item else hint_log
                 with open(path, "w", encoding="utf-8") as file:
                     file.writelines(lines)
+                self.update_gist(''.join(lines))
                 return
 
             if line == hint_log:
@@ -295,6 +308,7 @@ class Seed:
                     lines[index] = full_log
                     with open(path, "w", encoding="utf-8") as file:
                         file.writelines(lines)
+                    self.update_gist(''.join(lines))
                 return
 
             if line == full_log:
@@ -324,12 +338,18 @@ class Seed:
         with open(path, "w", encoding="utf-8") as file:
             file.writelines(lines)
 
+        self.update_gist(''.join(lines))
+
     def populate_hints(self) -> None:
         self.populate_tracker(False)
 
     def populate_spoilers(self) -> None:
         self.populate_tracker(True)
 
+    def update_gist(self, content) -> None:
+        if options.OnlineTracker.CurrentValue:
+            updater = Github()
+            updater.update_gist(self.string, content)
 
 def generate_wikis(version: int = CurrentVersion) -> None:
     from html import escape
@@ -478,7 +498,6 @@ def generate_seedversion() -> None:
             file.write(f'    SeedEntry("{location}", {tag_string}),\n')
 
         file.write(f")\n")
-
 
 """
 TODO:

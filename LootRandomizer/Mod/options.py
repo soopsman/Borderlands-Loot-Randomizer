@@ -223,6 +223,9 @@ def _PopulateSpoilersClicked() -> None:
         confirmed,
     )
 
+def _OpenOnlineTrackerClicked() -> None:
+    if (options.GistUrl.CurrentValue != ''):
+        os.startfile(options.GistUrl.CurrentValue)
 
 def _ResetDismissedClicked() -> None:
     show_dialog(
@@ -439,6 +442,15 @@ HintDisplay = CallbackSpinner(
     StartingValue="Vague",
 )
 
+OnlineTracker = ModMenu.Options.Boolean(
+    Caption="Online Tracker",
+    Description=(
+        "Enables an online tracker for sharing with friends or chat."
+        "Github account required."
+    ),
+    StartingValue=False,
+)
+
 HintTrainingSeen = ModMenu.Options.Hidden(
     Caption="Seen Hint Training", StartingValue=False
 )
@@ -448,7 +460,15 @@ DudTrainingSeen = ModMenu.Options.Hidden(
 RewardsTrainingSeen = ModMenu.Options.Hidden(
     Caption="Seen Rewards Training", StartingValue=False
 )
-
+GithubToken = ModMenu.Options.Hidden(
+    Caption="Github Token", StartingValue=''
+)
+GistId = ModMenu.Options.Hidden(
+    Caption="Github Gist Id", StartingValue=''
+)
+GistUrl = ModMenu.Options.Hidden(
+    Caption="Github Gist Url", StartingValue=''
+)
 
 Options: Sequence[ModMenu.Options.Base] = (
     _NewSeedOptions,
@@ -483,6 +503,17 @@ Options: Sequence[ModMenu.Options.Base] = (
                 ),
                 Callback=_PopulateSpoilersClicked,
             ),
+            OnlineTracker,
+            CallbackField(
+                Caption="OPEN ONLINE TRACKER",
+                Description=(
+                    "Open the online tracker in a browser window."
+                ),
+                Callback=_OpenOnlineTrackerClicked,
+            ),
+            GithubToken,
+            GistId,
+            GistUrl
         ),
     ),
     HintDisplay,

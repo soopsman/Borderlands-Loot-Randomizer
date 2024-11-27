@@ -9,7 +9,7 @@ from .defines import *
 from . import options, items, hints, enemies, missions
 from .locations import Location
 from .items import ItemPool
-from .github import Github
+from Mods.LootRandomizer.Mod import github
 
 from base64 import b32encode, b32decode
 import random, os, importlib, threading
@@ -264,7 +264,7 @@ class Seed:
                     file.write(f"{location}\n")
                     fullContent += f"{location}\n"
         
-        self.update_gist(fullContent)
+        self.update_online_tracker(fullContent)
 
         return path
 
@@ -300,7 +300,7 @@ class Seed:
                 lines[index] = full_log if log_item else hint_log
                 with open(path, "w", encoding="utf-8") as file:
                     file.writelines(lines)
-                self.update_gist(''.join(lines))
+                self.update_online_tracker(''.join(lines))
                 return
 
             if line == hint_log:
@@ -308,7 +308,7 @@ class Seed:
                     lines[index] = full_log
                     with open(path, "w", encoding="utf-8") as file:
                         file.writelines(lines)
-                    self.update_gist(''.join(lines))
+                    self.update_online_tracker(''.join(lines))
                 return
 
             if line == full_log:
@@ -338,7 +338,7 @@ class Seed:
         with open(path, "w", encoding="utf-8") as file:
             file.writelines(lines)
 
-        self.update_gist(''.join(lines))
+        self.update_online_tracker(''.join(lines))
 
     def populate_hints(self) -> None:
         self.populate_tracker(False)
@@ -346,10 +346,9 @@ class Seed:
     def populate_spoilers(self) -> None:
         self.populate_tracker(True)
 
-    def update_gist(self, content) -> None:
+    def update_online_tracker(self, content) -> None:
         if options.OnlineTracker.CurrentValue:
-            updater = Github()
-            updater.update_gist(self.string, content)
+            github.update(self.string, content)
 
 def generate_wikis(version: int = CurrentVersion) -> None:
     from html import escape

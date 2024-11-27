@@ -3,7 +3,7 @@ from __future__ import annotations
 from unrealsdk import Log, FindObject
 from unrealsdk import RunHook, RemoveHook, UObject, UFunction, FStruct
 
-from Mods import ModMenu
+from Mods import ModMenu, UserFeedback
 
 from . import options, hints, seed
 from .defines import *
@@ -227,6 +227,19 @@ def _OpenOnlineTrackerClicked() -> None:
     if (options.GistUrl.CurrentValue != ''):
         os.startfile(options.GistUrl.CurrentValue)
 
+def _EnterGithubTokenClicked() -> None:
+    _RequestGithubToken()
+
+class _RequestGithubToken(UserFeedback.TextInputBox):
+    def __init__(self):
+        super().__init__(Title="Paste in your Github access token", DefaultMessage='')
+        self.Show()
+
+    def OnSubmit(self, name: str) -> None:
+        if name != "":
+            options.GithubToken.CurrentValue = name
+            options.SaveSettings()
+
 def _ResetDismissedClicked() -> None:
     show_dialog(
         "Dismissed Hints Reset", "All hints items will now appear again."
@@ -445,8 +458,8 @@ HintDisplay = CallbackSpinner(
 OnlineTracker = ModMenu.Options.Boolean(
     Caption="Online Tracker",
     Description=(
-        "Enables an online tracker for sharing with friends or chat."
-        "Github account required."
+        "Enables an online tracker for sharing with friends or "
+        "chat. Github account required."
     ),
     StartingValue=False,
 )
@@ -468,6 +481,9 @@ GistId = ModMenu.Options.Hidden(
 )
 GistUrl = ModMenu.Options.Hidden(
     Caption="Github Gist Url", StartingValue=''
+)
+LastSeed = ModMenu.Options.Hidden(
+    Caption="Last Seed Updated", StartingValue=''
 )
 
 Options: Sequence[ModMenu.Options.Base] = (
@@ -511,9 +527,19 @@ Options: Sequence[ModMenu.Options.Base] = (
                 ),
                 Callback=_OpenOnlineTrackerClicked,
             ),
+            CallbackField(
+                Caption="SET GITHUB TOKEN",
+                Description=(
+                    "Required for online tracker, create one at "
+                    "github.com/settings/tokens -> Generate new token (Classic) "
+                    "and include the Gist permission."
+                ),
+                Callback=_EnterGithubTokenClicked,
+            ),
             GithubToken,
             GistId,
-            GistUrl
+            GistUrl,
+            LastSeed
         ),
     ),
     HintDisplay,

@@ -7,17 +7,17 @@ sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
 import requests
 
 GithubGistApi = "https://api.github.com/gists"
-
+    
 def update(seed, content) -> None:
     if options.GithubToken.CurrentValue == '':
         return
 
-        def executeRequest():
-            headers = {
-                "Accept": "application/vnd.github+json",
-                "Authorization": f"Bearer {options.GithubToken.CurrentValue}",
-                "X-GitHub-Api-Version": "2022-11-28"
-            }
+    def executeRequest():
+        headers = {
+            "Accept": "application/vnd.github+json",
+            "Authorization": f"Bearer {options.GithubToken.CurrentValue}",
+            "X-GitHub-Api-Version": "2022-11-28"
+        }
 
         Log(f"Last seed updated {options.LastSeed.CurrentValue}")
 
@@ -63,20 +63,20 @@ def update(seed, content) -> None:
         Log(f"About to {method} to {url} for seed {seed}")
         
         dataString = json.dumps(data, indent=4)
-            try:
+        try:
             response = requests.request(method, url, headers=headers, data=dataString)
             options.LastSeed.CurrentValue = seed
             options.SaveSettings()
-            except Exception as inst:
-                Log(f"Got exception {type(inst)}: {inst}")
+        except Exception as inst:
+            Log(f"Got exception {type(inst)}: {inst}")
 
         Log(f"{method} response for seed {seed} was {response.status_code}")
+    
+        if response.status_code == 201:
+            gist = json.loads(response.content)
+            options.GistId.CurrentValue = gist["id"]
+            options.GistUrl.CurrentValue = gist["html_url"]
+            options.SaveSettings()
         
-            if response.status_code == 201:
-                gist = json.loads(response.content)
-                options.GistId.CurrentValue = gist["id"]
-                options.GistUrl.CurrentValue = gist["html_url"]
-                options.SaveSettings()
-        
-        #threading.Thread(target=executeRequest).start()
+    #threading.Thread(target=executeRequest).start()
     executeRequest()

@@ -1,6 +1,6 @@
-from unrealsdk import Log
 from . import options
 import json, sys, os, threading
+import unrealsdk
 
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
 
@@ -18,8 +18,6 @@ def update(seed, content) -> None:
             "Authorization": f"Bearer {options.GithubToken.CurrentValue}",
             "X-GitHub-Api-Version": "2022-11-28"
         }
-
-        Log(f"Last seed updated {options.LastSeed.CurrentValue}")
 
         if options.LastSeed.CurrentValue == seed:
             data = {
@@ -60,23 +58,20 @@ def update(seed, content) -> None:
             method = "PATCH"
             url = f"{GithubGistApi}/{options.GistId.CurrentValue}"
 
-        Log(f"About to {method} to {url} for seed {seed}")
-        
         dataString = json.dumps(data, indent=4)
-        try:
-            response = requests.request(method, url, headers=headers, data=dataString)
-            options.LastSeed.CurrentValue = seed
-            options.SaveSettings()
-        except Exception as inst:
-            Log(f"Got exception {type(inst)}: {inst}")
-
-        Log(f"{method} response for seed {seed} was {response.status_code}")
+        response = requests.request(method, url, headers=headers, data=dataString)
+        options.LastSeed.CurrentValue = seed
+        options.SaveSettings()
     
         if response.status_code == 201:
             gist = json.loads(response.content)
             options.GistId.CurrentValue = gist["id"]
             options.GistUrl.CurrentValue = gist["html_url"]
             options.SaveSettings()
+        unrealsdk.RemoveHook("Engine.PlayerController.PlayerTick", "ModMenu.NetworkManager")
         
-    #threading.Thread(target=executeRequest).start()
-    executeRequest()
+    threading.Thread(target=executeRequest).start()
+    unrealsdk.RunHook("Engine.PlayerController.PlayerTick", "ModMenu.NetworkManager", _PlayerTick)
+
+def _PlayerTick(caller: unrealsdk.UObject, function: unrealsdk.UFunction, params: unrealsdk.FStruct) -> bool:
+    return True

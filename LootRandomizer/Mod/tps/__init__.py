@@ -5,8 +5,8 @@ from typing import Callable, List, Optional
 from unrealsdk import UObject
 
 
-CurrentVersion = 2
-SupportedVersions = (1, 2)
+CurrentVersion = 3
+SupportedVersions = (1, 3)
 
 
 class Character(enum.Enum):
@@ -30,7 +30,7 @@ class Category(str, enum.Enum):
 
 class Tag(enum.IntFlag):
     def __contains__(self, other: enum.IntFlag) -> bool:
-        return self & other == other
+        return int(self) & int(other) == int(other)
 
     category: Category
     default: bool
@@ -64,6 +64,8 @@ class Tag(enum.IntFlag):
 
     DuplicateItems = enum.auto()
     EnableHints = enum.auto()
+
+    Freebie = enum.auto()
 
     Excluded = 0x1 << 36
 
@@ -107,6 +109,7 @@ for tag, category, default, caption, description in (
 
     (Tag.Raid,               Category.Other,    True,  "Raids",              "Assign items to locations that are a part of raids. Raid locations drop many loot instances guaranteed."),
     (Tag.MissionLocation,    Category.Other,    True,  "Mission Locations",  "Assign items to locations that are only available while doing (or re-doing) a mission."),
+    (Tag.Freebie,            Category.Other,    True,  "Freebies",           "Assign items to locations that don't involve any enemies."),
     (Tag.Miscellaneous,      Category.Other,    True,  "Miscellaneous",      "Assign items to miscellaneous loot locations (boxes that give unique items, etcetera)."),
 
     (Tag.DuplicateItems,     Category.Settings, False, "Duplicate Items",    "For seeds with more locations than items, random items can have multiple locations."),
@@ -135,6 +138,9 @@ for tag, category, default, caption, description in (
 
 class Hint(str, enum.Enum):
     formatter: Callable[[str], str]
+
+    def __str__(self) -> str:
+        return self.value
 
     Dud = "Nothing"
 

@@ -32,7 +32,7 @@ BL2 = Game.GetCurrent() is Game.BL2
 TPS = Game.GetCurrent() is Game.TPS
 
 if TYPE_CHECKING:
-    from .tps import *
+    from .bl2 import *
 elif BL2:
     from .bl2 import *
 elif TPS:
@@ -126,11 +126,17 @@ def set_command(uobject: UObject, attribute: str, value: str):
 
 
 def convert_struct(fstruct: Any) -> Any:
-    iterator: Optional[Iterator[UObject]] = None
+    iterator: Optional[Iterator[Any]] = None
     try:
         iterator = iter(fstruct)
+        try:
+            int(fstruct)
+            iterator = None
+        except:
+            pass
     except:
         pass
+
     if iterator:
         return [convert_struct(value) for value in iterator]
 

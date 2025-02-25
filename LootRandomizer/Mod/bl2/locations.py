@@ -18,6 +18,7 @@ from ..enemies import Enemy, Pawn
 from ..items import ItemPool
 from ..locations import Behavior, Dropper, MapDropper, PreventDestroy
 from ..missions import (
+    PlaythroughDelegate,
     Mission,
     MissionDropper,
     MissionDefinition,
@@ -254,21 +255,18 @@ class Leviathan(MapDropper):
 
 class MonsterTruckDriver(Pawn):
     def should_inject(self, pawn: UObject) -> bool:
-        if (
-            UObject.PathName(pawn.MySpawnPoint)
-            != "Iris_Hub2_Combat.TheWorld:PersistentLevel.WillowPopulationPoint_52"
-        ):
-            return False
-        pawn.DoesVehicleAllowMeToDropLoot = True
-        return True
+        return (
+            pawn.MySpawnPoint
+            and UObject.PathName(pawn.MySpawnPoint)
+            == "Iris_Hub2_Combat.TheWorld:PersistentLevel.WillowPopulationPoint_52"
+        )
 
 
 class PetesBurner(Pawn):
     def should_inject(self, pawn: UObject) -> bool:
-        # TODO: more accurate burner designation
         return (
             pawn.Allegiance.Name == "Iris_Allegiance_DragonGang"
-            and locations.map_name == "Iris_DL2_P".casefold()
+            and locations.map_name != "Iris_DL2_Interior_P".casefold()
         )
 
 
@@ -286,9 +284,10 @@ def _spawn_midget(caller: UObject, _f: UFunction, params: FStruct) -> bool:
 
 class Midget(Pawn):
     def should_inject(self, pawn: UObject) -> bool:
-        return (UObject.PathName(pawn) not in _doctorsorders_midgets) and (
-            UObject.PathName(pawn.MySpawnPoint)
-            != "OldDust_Mission_Side.TheWorld:PersistentLevel.WillowPopulationPoint_26"
+        return UObject.PathName(pawn) not in _doctorsorders_midgets and not (
+            pawn.MySpawnPoint
+            and UObject.PathName(pawn.MySpawnPoint)
+            == "OldDust_Mission_Side.TheWorld:PersistentLevel.WillowPopulationPoint_26"
         )
 
 
@@ -300,7 +299,8 @@ class DoctorsOrdersMidget(Pawn):
 class SpaceCowboyMidget(Pawn):
     def should_inject(self, pawn: UObject) -> bool:
         return (
-            UObject.PathName(pawn.MySpawnPoint)
+            pawn.MySpawnPoint
+            and UObject.PathName(pawn.MySpawnPoint)
             == "OldDust_Mission_Side.TheWorld:PersistentLevel.WillowPopulationPoint_26"
         )
 
@@ -400,22 +400,6 @@ class DigiEnemy(Enemy):
         )
 
 
-class DocMercy(MissionGiver):
-    def __init__(self) -> None:
-        super().__init__(
-            "Frost_Dynamic.TheWorld:PersistentLevel.WillowInteractiveObject_413.MissionDirectivesDefinition_0",
-            False,
-            False,
-            "Frost_P",
-        )
-
-    def apply(self) -> Optional[UObject]:
-        giver = super().apply()
-        if not is_client():
-            get_missiontracker().UnregisterMissionDirector(giver)
-        return giver
-
-
 class Loader1340(MissionDropper, MapDropper):
     paths = ("dam_p",)
 
@@ -483,8 +467,8 @@ class McShooty(MissionStatusDelegate, MapDropper):
                 and pawn.AIClass
                 and pawn.AIClass.Name == "CharClass_Shootyface"
             ):
-                pawn.bHidden = True
-                pawn.CollisionType = 1
+                pawn.SetHidden(True)
+                pawn.SetCollisionType(1)
 
     def entered_map(self) -> None:
         destroyreal = FindObject(
@@ -632,6 +616,7 @@ class WrittenByTheVictor(MapDropper):
 
 
 class ARealBoy(MapDropper):
+    # TODO: fix mal not spawning during/after talon of god + real boy
     paths = ("Ash_P",)
 
     def entered_map(self) -> None:
@@ -714,7 +699,8 @@ class MessageInABottle(MissionStatusDelegate, MapDropper):
     def accepted(self) -> None:
         for chest in FindAll("WillowInteractiveObject"):
             if (
-                UObject.PathName(chest.InteractiveObjectDefinition)
+                chest.InteractiveObjectDefinition
+                and UObject.PathName(chest.InteractiveObjectDefinition)
                 == "GD_Orchid_SM_Message_Data.MO_Orchid_XMarksTheSpot"
             ):
                 missiondef = self.location.mission_definition.uobject
@@ -979,8 +965,6 @@ class Sirentology(MapDropper):
                 ai_bpd = pawn.AIClass.AIDef.BehaviorProviderDefinition
                 kernel = get_behaviorkernel()
 
-                sequence = ai_bpd.BehaviorSequences[23]
-                sequence.CustomEnableCondition.bComplete = True
                 kernel.ChangeBehaviorSequenceActivationStatus(
                     handle, ai_bpd, "S050_GiveMission", 1
                 )
@@ -1022,26 +1006,40 @@ class MichaelMamaril(MapDropper):
     paths = ("Sanctuary_P",)
 
     def entered_map(self) -> None:
-        switch = FindObject(
-            "SeqAct_RandomSwitch",
-            "Sanctuary_Dynamic.TheWorld:PersistentLevel.Main_Sequence.SeqAct_RandomSwitch_0",
+        # switch = FindObject(
+        #     "SeqAct_RandomSwitch",
+        #     "Sanctuary_Dynamic.TheWorld:PersistentLevel.Main_Sequence.SeqAct_RandomSwitch_0",
+        # )
+        # if not switch:
+        #     raise Exception("Could not locate switch for Michael Mamaril")
+        # switch.LinkCount = 1
+        # TODO: test
+        get_pc().ConsoleCommand(
+            "set"
+            " Sanctuary_Dynamic.TheWorld:PersistentLevel.Main_Sequence.SeqAct_RandomSwitch_0"
+            " LinkCount"
+            " 2"
         )
-        if not switch:
-            raise Exception("Could not locate switch for Michael Mamaril")
-        switch.LinkCount = 2
 
 
 class MichaelMAirmaril(MapDropper):
     paths = ("SanctuaryAir_P",)
 
     def entered_map(self) -> None:
-        switch = FindObject(
-            "SeqAct_RandomSwitch",
-            "SanctuaryAir_Dynamic.TheWorld:PersistentLevel.Main_Sequence.SeqAct_RandomSwitch_0",
+        # switch = FindObject(
+        #     "SeqAct_RandomSwitch",
+        #     "SanctuaryAir_Dynamic.TheWorld:PersistentLevel.Main_Sequence.SeqAct_RandomSwitch_0",
+        # )
+        # if not switch:
+        #     raise Exception("Could not locate switch for Michael Mamaril")
+        # switch.LinkCount = 1
+
+        get_pc().ConsoleCommand(
+            "set "
+            "SanctuaryAir_Dynamic.TheWorld:PersistentLevel.Main_Sequence.SeqAct_RandomSwitch_0"
+            "LinkCount "
+            "2"
         )
-        if not switch:
-            raise Exception("Could not locate switch for Michael Mamaril")
-        switch.LinkCount = 2
 
 
 class DahlAbandonGrave(MapDropper):
@@ -1080,6 +1078,7 @@ class ButtstallionWithAmulet(MapDropper):
 # fmt: off
 
 Locations: Sequence[locations.Location] = (
+    Other("Playthrough Delegate", PlaythroughDelegate(), tags=Tag.Excluded),
     Other("Marketing Bonuses", MarketingBonuses(), tags=Tag.Excluded),
 
     Enemy("Knuckle Dragger", Pawn("PawnBalance_PrimalBeast_KnuckleDragger")),
@@ -1098,17 +1097,17 @@ Locations: Sequence[locations.Location] = (
     Other("Michael Mamaril",
         Behavior("GD_JohnMamaril.Character.AIDef_JohnMamaril:AIBehaviorProviderDefinition_1.Behavior_SpawnItems_92"),
         MichaelMamaril(), MichaelMAirmaril(),
-    ),
+    tags=Tag.Freebie),
     Other("Tip Moxxi",
         Behavior("GD_Moxxi.Character.CharClass_Moxxi:BehaviorProviderDefinition_3.Behavior_SpawnItems_17"),
         Behavior("GD_Moxxi.Character.CharClass_Moxxi:BehaviorProviderDefinition_3.Behavior_SpawnItems_23"),
-    ),
-    Mission("Claptrap's Secret Stash", MissionDefinition("GD_Z1_ClapTrapStash.M_ClapTrapStash")),
-    Mission("Do No Harm", MissionDefinition("GD_Z1_Surgery.M_PerformSurgery")),
-    Mission("Rock, Paper, Genocide: Fire Weapons!", MissionDefinition("GD_Z1_RockPaperGenocide.M_RockPaperGenocide_Fire")),
-    Mission("Rock, Paper, Genocide: Shock Weapons!", MissionDefinition("GD_Z1_RockPaperGenocide.M_RockPaperGenocide_Shock")),
-    Mission("Rock, Paper, Genocide: Corrosive Weapons!", MissionDefinition("GD_Z1_RockPaperGenocide.M_RockPaperGenocide_Corrosive")),
-    Mission("Rock, Paper, Genocide: Slag Weapons!", MissionDefinition("GD_Z1_RockPaperGenocide.M_RockPaperGenocide_Amp")),
+    tags=Tag.Freebie),
+    Mission("Claptrap's Secret Stash", MissionDefinition("GD_Z1_ClapTrapStash.M_ClapTrapStash"), tags=Tag.Freebie),
+    Mission("Do No Harm", MissionDefinition("GD_Z1_Surgery.M_PerformSurgery"), tags=Tag.Freebie),
+    Mission("Rock, Paper, Genocide: Fire Weapons!", MissionDefinition("GD_Z1_RockPaperGenocide.M_RockPaperGenocide_Fire"), tags=Tag.Freebie),
+    Mission("Rock, Paper, Genocide: Shock Weapons!", MissionDefinition("GD_Z1_RockPaperGenocide.M_RockPaperGenocide_Shock"), tags=Tag.Freebie),
+    Mission("Rock, Paper, Genocide: Corrosive Weapons!", MissionDefinition("GD_Z1_RockPaperGenocide.M_RockPaperGenocide_Corrosive"), tags=Tag.Freebie),
+    Mission("Rock, Paper, Genocide: Slag Weapons!", MissionDefinition("GD_Z1_RockPaperGenocide.M_RockPaperGenocide_Amp"), tags=Tag.Freebie),
     Mission("The Name Game", MissionDefinition("GD_Z1_NameGame.M_NameGame"), tags=Tag.LongMission),
     Mission("Assassinate the Assassins", MissionDefinition("GD_Z1_Assasinate.M_AssasinateTheAssassins"), tags=Tag.LongMission),
     Enemy("Assassin Wot", Pawn("PawnBalance_Assassin1")),
@@ -1117,12 +1116,12 @@ Locations: Sequence[locations.Location] = (
     Enemy("Assassin Rouf", Pawn("PawnBalance_Assassin4"), tags=Tag.SlowEnemy),
     Mission("Medical Mystery", MissionDefinition("GD_Z3_MedicalMystery.M_MedicalMystery")),
     Enemy("Doc Mercy", Pawn("PawnBalance_MrMercy")),
-    Mission("Medical Mystery: X-Com-municate",
-        MissionDefinition("GD_Z3_MedicalMystery2.M_MedicalMystery2"),
+    Mission("Medical Mystery: X-Com-municate", MissionDefinition("GD_Z3_MedicalMystery2.M_MedicalMystery2"),
         MissionGiver("GD_Zed.Character.Pawn_Zed:MissionDirectivesDefinition_1", True, True, "Sanctuary_P", "SanctuaryAir_P"),
+        MissionGiver("Frost_Dynamic.TheWorld:PersistentLevel.WillowInteractiveObject_413.MissionDirectivesDefinition_0", False, False, "Frost_P"),
         XCom(),
-        DocMercy(),
     tags=Tag.LongMission),
+    # TODO: Fix residual "!" above Mercy corpse
     Mission("No Vacancy", MissionDefinition("GD_Z1_NoVacancy.BalanceDefs.M_NoVacancy"),
         MissionGiver("Frost_Dynamic.TheWorld:PersistentLevel.WillowInteractiveObject_32.MissionDirectivesDefinition_0", True, True, "Frost_P")
     ),
@@ -1189,7 +1188,7 @@ Locations: Sequence[locations.Location] = (
     Enemy("Incinerator Clayton", Pawn("PawnBalance_IncineratorVanya_Combat"), tags=Tag.SlowEnemy),
     Mission("In Memoriam", MissionDefinition("GD_Z1_InMemoriam.M_InMemoriam")),
     Enemy("Boll", Pawn("PawnBalance_Boll")),
-    Other("What's In The Box?", Attachment("ObjectGrade_WhatsInTheBox")),
+    Other("What's In The Box?", Attachment("ObjectGrade_WhatsInTheBox"), tags=Tag.Freebie),
     Enemy("The Black Queen", Pawn("PawnBalance_SpiderantBlackQueen"), tags=Tag.SlowEnemy|Tag.RareEnemy),
     Mission("Too Close For Missiles", MissionDefinition("gd_z3_toocloseformissiles.M_TooCloseForMissiles")),
     Enemy("Shirtless Man", Pawn("PawnBalance_ShirtlessMan"), mission="Too Close For Missiles"),
@@ -1212,7 +1211,7 @@ Locations: Sequence[locations.Location] = (
     Other("Tundra Express Snowman Head",
         Attachment("BD_Ep7_SnowManHead_Ammo"),
         Attachment("BD_Ep7_SnowManHead_FlareGun"),
-    ),
+    tags=Tag.Freebie),
     Enemy("Ultimate Badass Varkid", Pawn("PawnBalance_BugMorphUltimateBadass"), tags=Tag.EvolvedEnemy|Tag.VeryRareEnemy),
     Enemy("Vermivorous the Invincible", Pawn("PawnBalance_BugMorphRaid"), tags=Tag.EvolvedEnemy|Tag.VeryRareEnemy|Tag.Raid),
     Mission("Mighty Morphin'", MissionDefinition("GD_Z1_MightyMorphin.M_MightyMorphin")),
@@ -1242,14 +1241,14 @@ Locations: Sequence[locations.Location] = (
     Mission("Bandit Slaughter: Round 4", MissionDefinition("GD_Z1_BanditSlaughter.M_BanditSlaughter4"), tags=Tag.Slaughter|Tag.LongMission),
     Mission("Bandit Slaughter: Round 5", MissionDefinition("GD_Z1_BanditSlaughter.M_BanditSlaughter5"), tags=Tag.Slaughter|Tag.VeryLongMission),
         # double-check repeating mission with no save-quit
-    Mission("Won't Get Fooled Again", MissionDefinition("GD_Z1_WontGetFooled.M_WontGetFooled")),
+    Mission("Won't Get Fooled Again", MissionDefinition("GD_Z1_WontGetFooled.M_WontGetFooled"), tags=Tag.Freebie),
     Enemy("Barlo Gutter", Pawn("BD_BarloGutter"), mission="Won't Get Fooled Again"),
-    Mission("Claptrap's Birthday Bash!", MissionDefinition("GD_Z2_ClaptrapBirthdayBash.M_ClaptrapBirthdayBash")),
+    Mission("Claptrap's Birthday Bash!", MissionDefinition("GD_Z2_ClaptrapBirthdayBash.M_ClaptrapBirthdayBash"), tags=Tag.Freebie),
         # No pizza or noisemaker prompts on repeat
     Mission("Slap-Happy", MissionDefinition("GD_Z2_SlapHappy.M_SlapHappy")),
     Enemy("Old Slappy", Pawn("PawnBalance_Slappy")),
     Mission("Hidden Journals", MissionDefinition("GD_Z3_HiddenJournals.M_HiddenJournals")),
-    Mission("Torture Chairs", MissionDefinition("GD_Z1_HiddenJournalsFurniture.M_HiddenJournalsFurniture")),
+    Mission("Torture Chairs", MissionDefinition("GD_Z1_HiddenJournalsFurniture.M_HiddenJournalsFurniture"), tags=Tag.Freebie),
     Mission("Arms Dealing", MissionDefinition("GD_Z2_ArmsDealer.M_ArmsDealer"), tags=Tag.VehicleMission),
     Mission("Stalker of Stalkers", MissionDefinition("GD_Z2_TaggartBiography.M_TaggartBiography")),
     Mission("Best Mother's Day Ever", MissionDefinition("GD_Z2_MothersDayGift.BalanceDefs.M_MothersDayGift")),
@@ -1262,14 +1261,14 @@ Locations: Sequence[locations.Location] = (
     ),
     Mission("Clan War: Starting the War", MissionDefinition("GD_Z2_MeetWithEllie.M_MeetWithEllie")),
     Mission("Clan War: First Place", MissionDefinition("GD_Z2_RiggedRace.M_RiggedRace")),
-    Mission("Clan War: Reach the Dead Drop", MissionDefinition("GD_Z2_LuckysDirtyMoney.M_FamFeudDeadDrop")),
+    Mission("Clan War: Reach the Dead Drop", MissionDefinition("GD_Z2_LuckysDirtyMoney.M_FamFeudDeadDrop"), tags=Tag.Freebie),
     Mission("Clan War: End of the Rainbow", MissionDefinition("GD_Z2_LuckysDirtyMoney.M_LuckysDirtyMoney"),
         MissionObject("Luckys_Dynamic.TheWorld:PersistentLevel.WillowInteractiveObject_2788", "Luckys_P"),
     ),
     Enemy("Bagman", Pawn("PawnBalance_Leprechaun"), mission="Clan War: End of the Rainbow"),
     Mission("Clan War: Trailer Trashing", MissionDefinition("GD_Z2_TrailerTrashin.M_TrailerTrashin")),
         # Gas tanks do not reset without relog
-    Mission("Clan War: Wakey Wakey", MissionDefinition("GD_Z2_WakeyWakey.M_WakeyWakey")),
+    Mission("Clan War: Wakey Wakey", MissionDefinition("GD_Z2_WakeyWakey.M_WakeyWakey"), tags=Tag.Freebie),
     Mission("Clan War: Zafords vs. Hodunks (Kill Hodunks)", MissionDefinition("GD_Z2_DuelingBanjos.M_DuelingBanjos")),
     Enemy("Tector Hodunk", Pawn("PawnBalance_TectorHodunk_Combat")),
     Mission("Clan War: Zafords vs. Hodunks (Kill Zafords)", MissionTurnInAlt("GD_Z2_DuelingBanjos.M_DuelingBanjos")),
@@ -1320,7 +1319,7 @@ Locations: Sequence[locations.Location] = (
     Mission("Rakkaholics Anonymous (Turn in Mordecai)", MissionDefinition("GD_Z2_Rakkaholics.M_Rakkaholics")),
     Mission("Rakkaholics Anonymous (Turn in Moxxi)", MissionTurnInAlt("GD_Z2_Rakkaholics.M_Rakkaholics")),
 
-    Mission("Poetic License", MissionDefinition("GD_Z2_PoeticLicense.M_PoeticLicense"), PoeticLicense()),
+    Mission("Poetic License", MissionDefinition("GD_Z2_PoeticLicense.M_PoeticLicense"), PoeticLicense(), tags=Tag.Freebie),
         # On repeat, traveling to thousand cuts gives 2/3 photos
         # LOOT DAISY: Daisy should stay outside, no dialog, not gun sound, just die
     Enemy("Daisy", Pawn("BD_Daisy"), mission="Poetic License"),
@@ -1329,8 +1328,8 @@ Locations: Sequence[locations.Location] = (
         McShooty(),
         MissionGiver("GD_Shootyface.Character.Pawn_Shootyface:MissionDirectivesDefinition_1", True, True, "Grass_Cliffs_P"),
         MissionGiver("Grass_Cliffs_Dynamic.TheWorld:PersistentLevel.WillowInteractiveObject_725.MissionDirectivesDefinition_0", False, False, "Grass_Cliffs_P"),
-    ),
-    Mission("Rocko's Modern Strife", MissionDefinition("GD_Z2_RockosModernStrife.M_RockosModernStrife")),
+    tags=Tag.Freebie),
+    Mission("Rocko's Modern Strife", MissionDefinition("GD_Z2_RockosModernStrife.M_RockosModernStrife"), tags=Tag.Freebie),
     Mission("Defend Slab Tower", MissionDefinition("GD_Z2_DefendSlabTower.M_DefendSlabTower")),
         # On repeat, loader waves spawn before other objectives, softlock if killed first
 
@@ -1345,15 +1344,16 @@ Locations: Sequence[locations.Location] = (
     Mission("Breaking the Bank", MissionDefinition("GD_Z2_TheBankJob.M_TheBankJob"), tags=Tag.LongMission),
         # On repeat, skag pile already broken
     Mission("Showdown", MissionDefinition("GD_Z2_KillTheSheriff.M_KillTheSheriff")),
+    Enemy("The Sheriff of Lynchwood", Pawn("PawnBalance_Sheriff")),
+    Enemy("Deputy Winger", Pawn("PawnBalance_Deputy")),
     Mission("Animal Rescue: Medicine", MissionDefinition("GD_Z2_Skagzilla2.M_Skagzilla2_Pup"),
         MissionGiver("GD_SkagzillaAdult.Character.Pawn_SkagzillaAdult:MissionDirectivesDefinition_0", True, True, "Grass_Lynchwood_P"),
     ),
     Mission("Animal Rescue: Food", MissionDefinition("GD_Z2_Skagzilla2.M_Skagzilla2_Adult")),
         # On repeat, cannot place food
     Mission("Animal Rescue: Shelter", MissionDefinition("GD_Z2_Skagzilla2.M_Skagzilla2_Den")),
+    # TODO: After completion, make grownup Dukino spawn outside doghouse + interactible + visible
         # On repeat, Dukino sotflocks already in shelter until savequit
-    Enemy("The Sheriff of Lynchwood", Pawn("PawnBalance_Sheriff")),
-    Enemy("Deputy Winger", Pawn("PawnBalance_Deputy")),
     Mission("Hell Hath No Fury", MissionDefinition("GD_Z2_HellHathNo.M_FloodingHyperionCity")),
         # On repeat, foreman doesnt respawn
     Enemy("Foreman Jasper/Rusty", Pawn("PawnBalance_Foreman")),
@@ -1361,7 +1361,10 @@ Locations: Sequence[locations.Location] = (
         # On repeat, third statue softlocks, not progressing to "here's your prize" enemy wave
     Enemy("Hacked Overseer", Pawn("PawnBalance_ConstructorLaserStatue"), mission="Statuesque"),
     Mission("Home Movies", MissionDefinition("GD_Z2_HomeMovies.M_HomeMovies")),
-    Mission("Written by the Victor", MissionDefinition("GD_Z2_WrittenByVictor.M_WrittenByVictor"), WrittenByTheVictor()), 
+    Mission("Written by the Victor",
+        MissionDefinition("GD_Z2_WrittenByVictor.M_WrittenByVictor"),
+        WrittenByTheVictor()
+    ),
         # On repeat, history buttons are disabled
         # After all dialog plays after first turn-in, button becomes disabled
     Enemy("BNK-3R",
@@ -1386,8 +1389,8 @@ Locations: Sequence[locations.Location] = (
             "GD_HyperionBunkerBoss.Character.AIDef_BunkerBoss:AIBehaviorProviderDefinition_1.Behavior_SpawnItems_17",
         inject=False),
     tags=Tag.SlowEnemy),
-    Mission("Bearer of Bad News", MissionDefinition("GD_Z1_BearerBadNews.M_BearerBadNews")),
-    Mission("BFFs", MissionDefinition("GD_Z1_BFFs.M_BFFs"), BFFs()), 
+    Mission("Bearer of Bad News", MissionDefinition("GD_Z1_BearerBadNews.M_BearerBadNews"), tags=Tag.Freebie),
+    Mission("BFFs", MissionDefinition("GD_Z1_BFFs.M_BFFs"), BFFs(), tags=Tag.Freebie), 
         # After completion, cannot interact with Sam to reaccpet mission
         # After save quit, Sam not spawned to give mission
     Enemy("Jim Kepler", Pawn("BD_BFF_Jim"), mission="BFFs"),
@@ -1403,9 +1406,9 @@ Locations: Sequence[locations.Location] = (
     Enemy("Geary", Pawn("PawnBalance_Smagal"), tags=Tag.SlowEnemy),
     Enemy("Donkey Mong", Pawn("PawnBalance_PrimalBeast_DonkeyMong"), tags=Tag.RareEnemy),
     Enemy("King Mong", Pawn("PawnBalance_PrimalBeast_KingMong"), tags=Tag.RareEnemy),
-    Mission("Kill Yourself (Do it)", MissionDefinition("GD_Z3_KillYourself.M_KillYourself")),
+    Mission("Kill Yourself (Do it)", MissionDefinition("GD_Z3_KillYourself.M_KillYourself"), tags=Tag.Freebie),
         # Killing self doesnt trigger on repeat
-    Mission("Kill Yourself (Don't do it)", MissionTurnInAlt("GD_Z3_KillYourself.M_KillYourself")),
+    Mission("Kill Yourself (Don't do it)", MissionTurnInAlt("GD_Z3_KillYourself.M_KillYourself"), tags=Tag.Freebie),
     Mission("Customer Service", MissionDefinition("GD_Z3_CustomerService.M_CustomerService"), tags=Tag.VehicleMission),
         # Mailboxes unopenable on repeat
     Mission("To Grandmother's House We Go", MissionDefinition("GD_Z3_GrandmotherHouse.M_GrandmotherHouse")),
@@ -1413,7 +1416,10 @@ Locations: Sequence[locations.Location] = (
         # On repeat, Mal unable to accept so many clothes
     Mission("A Real Boy: Face Time", MissionDefinition("GD_Z2_ARealBoy.M_ARealBoy_ArmLeg")),
         # On repeat, topmost two limbs (legs) do not respawn
-    Mission("A Real Boy: Human", MissionDefinition("GD_Z2_ARealBoy.M_ARealBoy_Human"), ARealBoy()),
+    Mission("A Real Boy: Human",
+        MissionDefinition("GD_Z2_ARealBoy.M_ARealBoy_Human"),
+        ARealBoy()
+    ),
         # On repeat, mal unprepared for combat
     Mission("Hyperion Slaughter: Round 1", MissionDefinition("GD_Z3_RobotSlaughter.M_RobotSlaughter_1"), tags=Tag.Slaughter),
     Mission("Hyperion Slaughter: Round 2", MissionDefinition("GD_Z3_RobotSlaughter.M_RobotSlaughter_2"), tags=Tag.Slaughter),
@@ -1423,7 +1429,10 @@ Locations: Sequence[locations.Location] = (
     Mission("The Lost Treasure", MissionDefinition("GD_Z3_LostTreasure.M_LostTreasure"),
         MissionObject("CraterLake_Dynamic.TheWorld:PersistentLevel.WillowInteractiveObject_38", "CraterLake_P"),
     tags=Tag.VeryLongMission), 
-    Mission("The Great Escape", MissionDefinition("GD_Z3_GreatEscape.M_GreatEscape"), GreatEscape()), 
+    Mission("The Great Escape",
+        MissionDefinition("GD_Z3_GreatEscape.M_GreatEscape"),
+        GreatEscape()
+    ),
         # Beacon doesnt spawn on repeat
         # Ulysses stays dead after save quit
     Mission("The Chosen One", MissionDefinition("GD_Z3_ChosenOne.M_ChosenOne")),
@@ -1441,7 +1450,7 @@ Locations: Sequence[locations.Location] = (
         # ECHO rakk doesnt respawn on repeat
     Mission("Hungry Like the Skag", MissionDefinition("GD_Z3_HungryLikeSkag.M_HungryLikeSkag")), 
     Enemy("Bone Head 2.0", Pawn("PawnBalance_BoneHead2")),
-    Enemy("Saturn", Pawn("PawnBalance_LoaderGiant")),
+    Enemy("Saturn", Pawn("PawnBalance_LoaderGiant"), tags=Tag.SlowEnemy),
     Enemy("The Warrior",
         Behavior(
             "Boss_Volcano_Combat_Monster.TheWorld:PersistentLevel.Main_Sequence.SeqAct_ApplyBehavior_16.Behavior_SpawnItems_6",
@@ -1478,9 +1487,10 @@ Locations: Sequence[locations.Location] = (
     Other("Oasis Seraph Vendor",
         VendingMachine("GD_Orchid_SeraphCrystalVendor.Balance.Balance_SeraphCrystalVendor", "GD_Orchid_SeraphCrystalVendor.VendingMachine.VendingMachine_SeraphCrystal:BehaviorProviderDefinition_0.Behavior_Conditional_1.AttributeExpressionEvaluator_20"),
     tags=Tag.PiratesBooty|Tag.Vendor),
-    Mission("Message in a Bottle (Oasis)", MissionDefinition("GD_Orchid_SM_Message.M_Orchid_MessageInABottle1"),
+    Mission("Message in a Bottle (Oasis)",
+        MissionDefinition("GD_Orchid_SM_Message.M_Orchid_MessageInABottle1"),
         MessageInABottle(None, "Orchid_OasisTown_P"),
-    tags=Tag.PiratesBooty), 
+    tags=Tag.PiratesBooty|Tag.Freebie), 
         # On repeat, bottle uninteractable without savequit
     Mission("Man's Best Friend", MissionDefinition("GD_Orchid_SM_MansBestFriend.M_Orchid_MansBestFriend"), tags=Tag.PiratesBooty),
     Enemy("Tinkles", Pawn("PawnBalance_Orchid_StalkerPet"), tags=Tag.PiratesBooty),
@@ -1494,23 +1504,26 @@ Locations: Sequence[locations.Location] = (
         # Not enough union vehicles spawn unless savequit
     Mission("Ye Scurvy Dogs", MissionDefinition("GD_Orchid_SM_Scurvy.M_Orchid_ScurvyDogs"), tags=Tag.PiratesBooty),
         # Fruits unshootable unless savequit
-    Mission("Message in a Bottle (Wurmwater)", MissionDefinition("GD_Orchid_SM_Message.M_Orchid_MessageInABottle2"),
+    Mission("Message in a Bottle (Wurmwater)",
+        MissionDefinition("GD_Orchid_SM_Message.M_Orchid_MessageInABottle2"),
         MessageInABottle("GD_Orchid_SM_Message_Data.MO_Orchid_XMarksTheSpot:BehaviorProviderDefinition_2.BehaviorSequenceEnableByMission_13", "Orchid_SaltFlats_P"),
     tags=Tag.PiratesBooty), 
     Mission("Grendel", MissionDefinition("GD_Orchid_SM_Grendel.M_Orchid_Grendel"), tags=Tag.PiratesBooty),
         # Grendel doesnt respawn without savequit
     Enemy("Grendel", Pawn("PawnBalance_Orchid_Grendel"), tags=Tag.PiratesBooty),
-    Mission("Message in a Bottle (Hayter's Folly)", MissionDefinition("GD_Orchid_SM_Message.M_Orchid_MessageInABottle3"),
+    Mission("Message in a Bottle (Hayter's Folly)",
+        MissionDefinition("GD_Orchid_SM_Message.M_Orchid_MessageInABottle3"),
         MessageInABottle("GD_Orchid_SM_Message_Data.MO_Orchid_XMarksTheSpot:BehaviorProviderDefinition_2.BehaviorSequenceEnableByMission_23", "Orchid_Caves_P"),
     tags=Tag.PiratesBooty), 
     Enemy("The Big Sleep", Pawn("PawnBalance_Orchid_BigSleep"), tags=Tag.PiratesBooty|Tag.SlowEnemy),
     Enemy("Sandman", Pawn("PawnBalance_Orchid_Sandman_Solo"), tags=Tag.PiratesBooty|Tag.SlowEnemy),
-    Mission("Just Desserts for Desert Deserters", MissionDefinition("GD_Orchid_SM_Deserters.M_Orchid_Deserters"), tags=Tag.PiratesBooty),
+    Mission("Just Desserts for Desert Deserters", MissionDefinition("GD_Orchid_SM_Deserters.M_Orchid_Deserters"), tags=Tag.PiratesBooty|Tag.LongMission),
         # Deserters dont respawn without savequit
     Enemy("Benny the Booster", Pawn("PawnBalance_Orchid_Deserter1"), tags=Tag.PiratesBooty),
     Enemy("Deckhand", Pawn("PawnBalance_Orchid_Deserter2"), tags=Tag.PiratesBooty|Tag.SlowEnemy),
     Enemy("Toothless Terry", Pawn("PawnBalance_Orchid_Deserter3"), mission="Just Desserts for Desert Deserters"),
-    Mission("Message in a Bottle (The Rustyards)", MissionDefinition("GD_Orchid_SM_Message.M_Orchid_MessageInABottle4"),
+    Mission("Message in a Bottle (The Rustyards)",
+        MissionDefinition("GD_Orchid_SM_Message.M_Orchid_MessageInABottle4"),
         MessageInABottle("GD_Orchid_SM_Message_Data.MO_Orchid_XMarksTheSpot:BehaviorProviderDefinition_2.BehaviorSequenceEnableByMission_16", "Orchid_ShipGraveyard_P"),
     tags=Tag.PiratesBooty), 
     Mission("I Know It When I See It", MissionDefinition("GD_Orchid_SM_KnowIt.M_Orchid_KnowItWhenSeeIt"), tags=Tag.PiratesBooty),
@@ -1519,14 +1532,15 @@ Locations: Sequence[locations.Location] = (
     Enemy("H3RL-E", Pawn("PawnBalance_Orchid_LoaderBoss"), tags=Tag.PiratesBooty|Tag.SlowEnemy),
     Mission("Whoops", MissionTurnIn("GD_Orchid_Plot_Mission07.M_Orchid_PlotMission07"), tags=Tag.PiratesBooty|Tag.Excluded),
         # Not enough floppy pirates spawn without savequit
-    Mission("Faster Than the Speed of Love", MissionDefinition("GD_Orchid_SM_Race.M_Orchid_Race"), tags=Tag.PiratesBooty|Tag.VehicleMission),
+    Mission("Faster Than the Speed of Love", MissionDefinition("GD_Orchid_SM_Race.M_Orchid_Race"), tags=Tag.PiratesBooty|Tag.VehicleMission|Tag.Freebie),
     Mission("Catch-A-Ride, and Also Tetanus", MissionDefinition("GD_Orchid_SM_Tetanus.M_Orchid_CatchRideTetanus"), tags=Tag.PiratesBooty),
     Mission("Freedom of Speech", MissionDefinition("GD_Orchid_SM_Freedom.M_Orchid_FreedomOfSpeech"), tags=Tag.PiratesBooty),
         # DJ Tanner doesnt respawn until savequit
     Enemy("DJ Tanner", Pawn("PawnBalance_Orchid_PirateRadioGuy"), tags=Tag.PiratesBooty|Tag.SlowEnemy),
     Enemy("Mr. Bubbles", Pawn("PawnBalance_Orchid_Bubbles"), tags=Tag.PiratesBooty|Tag.VeryRareEnemy),
     Enemy("Lil' Sis", Behavior("GD_Orchid_LittleSis.Character.AIDef_Orchid_LittleSis:AIBehaviorProviderDefinition_1.Behavior_SpawnItems_85"), tags=Tag.PiratesBooty|Tag.VeryRareEnemy),
-    Mission("Message In A Bottle (Magnys Lighthouse)", MissionDefinition("GD_Orchid_SM_Message.M_Orchid_MessageInABottle6"),
+    Mission("Message In A Bottle (Magnys Lighthouse)",
+        MissionDefinition("GD_Orchid_SM_Message.M_Orchid_MessageInABottle6"),
         MessageInABottle("GD_Orchid_SM_Message_Data.MO_Orchid_XMarksTheSpot:BehaviorProviderDefinition_2.BehaviorSequenceEnableByMission_7", "Orchid_Spire_P"),
     tags=Tag.PiratesBooty),
     Mission("Treasure of the Sands",
@@ -1537,7 +1551,9 @@ Locations: Sequence[locations.Location] = (
     Enemy("Lieutenant White", Pawn("PawnBalance_Orchid_PirateHenchman"), mission="Treasure of the Sands"),
     Enemy("Lieutenant Hoffman", Pawn("PawnBalance_Orchid_PirateHenchman2"), mission="Treasure of the Sands"),
     Enemy("Captain Scarlett", Behavior("GD_Orchid_PirateQueen_Combat.Animation.Anim_Farewell:BehaviorProviderDefinition_0.Behavior_SpawnItems_10"), mission="Treasure of the Sands"),
-    Enemy("Leviathan", Leviathan(), mission="Treasure of the Sands"),
+    Enemy("Leviathan",
+        Leviathan(),
+    mission="Treasure of the Sands"),
     Mission("Hyperius the Invincible", MissionDefinition("GD_Orchid_Raid.M_Orchid_Raid1"), tags=Tag.PiratesBooty|Tag.Raid),
     Enemy("Hyperius the Invincible",
         Pawn("PawnBalance_Orchid_RaidEngineer"),
@@ -1567,7 +1583,7 @@ Locations: Sequence[locations.Location] = (
     tags=Tag.CampaignOfCarnage|Tag.Vendor),
     Other("Torgue Arena Provided Loot",
         Attachment("ObjectGrade_Iris_HyperionChest", 0),
-    tags=Tag.CampaignOfCarnage),
+    tags=Tag.CampaignOfCarnage|Tag.Freebie),
     Enemy("Gladiator Goliath", Pawn("Iris_PawnBalance_ArenaGoliath", evolved=5), mission="Tier 2 Battle: Appetite for Destruction"),
     Mission("Tier 2 Battle: Appetite for Destruction", MissionDefinition("GD_IrisEpisode02_Battle.M_IrisEp2Battle_CoP2"), tags=Tag.CampaignOfCarnage|Tag.Slaughter),
     Mission("Tier 3 Battle: Appetite for Destruction",
@@ -1600,11 +1616,11 @@ Locations: Sequence[locations.Location] = (
     Mission("Mother-Lover (Turn in Scooter)", MissionDefinition("GD_IrisDL2_DontTalkAbtMama.M_IrisDL2_DontTalkAbtMama"), tags=Tag.CampaignOfCarnage),
     Mission("Mother-Lover (Turn in Moxxi)", MissionTurnInAlt("GD_IrisDL2_DontTalkAbtMama.M_IrisDL2_DontTalkAbtMama"), tags=Tag.CampaignOfCarnage),
     Enemy("Hamhock the Ham", Pawn("Iris_PawnBalance_BB_Hamlock"), mission="Mother-Lover (Turn in Scooter)"),
-    Mission("Tier 2 Battle: The Death Race", MissionDefinition("GD_IrisEpisode04_Battle.M_IrisEp4Battle_Race2"), tags=Tag.CampaignOfCarnage|Tag.VehicleMission),
+    Mission("Tier 2 Battle: The Death Race", MissionDefinition("GD_IrisEpisode04_Battle.M_IrisEp4Battle_Race2"), tags=Tag.CampaignOfCarnage|Tag.VehicleMission|Tag.Freebie),
     Mission("Tier 3 Battle: The Death Race",
         MissionDefinition("GD_IrisEpisode04_Battle.M_IrisEp4Battle_RaceR4"),
         MissionDefinition("GD_IrisEpisode04_Battle.M_IrisEp4Battle_Race4"),
-    tags=Tag.CampaignOfCarnage|Tag.VehicleMission),
+    tags=Tag.CampaignOfCarnage|Tag.VehicleMission|Tag.Freebie),
     Mission("Tier 3 Rematch: The Death Race",
         MissionDefinition("GD_IrisEpisode04_Battle.M_IrisEp4Battle_RaceR4"),
     tags=Tag.CampaignOfCarnage|Tag.VehicleMission|Tag.Excluded),
@@ -1640,7 +1656,10 @@ Locations: Sequence[locations.Location] = (
         # Skags dont respawn without savequit
     Mission("Say That To My Face", MissionDefinition("GD_IrisDL3_PSYouSuck.M_IrisDL3_PSYouSuck"), tags=Tag.CampaignOfCarnage),
     Enemy("Anonymous Troll Face", Pawn("Iris_PawnBalance_SayFaceTroll"), mission="Say That To My Face"),
-    Mission("Commercial Appeal", CommercialAppeal(), MissionDefinition("GD_IrisDL3_CommAppeal.M_IrisDL3_CommAppeal"), tags=Tag.CampaignOfCarnage|Tag.LongMission),
+    Mission("Commercial Appeal",
+        MissionDefinition("GD_IrisDL3_CommAppeal.M_IrisDL3_CommAppeal"),
+        CommercialAppeal(),
+    tags=Tag.CampaignOfCarnage|Tag.LongMission),        
     Enemy("Piston/Badassasarus Rex",
         Pawn(
             "Iris_PawnBalance_Truckasaurus",
@@ -1690,7 +1709,7 @@ Locations: Sequence[locations.Location] = (
         # Only 2 echos respawn without savequit
     Mission("The Rakk Dahlia Murder", MissionDefinition("GD_Sage_SM_DahliaMurder.M_Sage_DahliaMurder"), tags=Tag.HammerlocksHunt),
         # Rakkanoth doesnt respawn without savequit
-    Enemy("Rakkanoth", Pawn("PawnBalance_Sage_DahliaMurder_Creature"), mission="The Rakk Dahlia Murder"),
+    Enemy("Rakkanoth", Pawn("PawnBalance_Sage_DahliaMurder_Creature"), mission="The Rakk Dahlia Murder", rarities=(100,)),
     Mission("Urine, You're Out", MissionDefinition("GD_Sage_SM_Urine.M_Sage_Urine"), tags=Tag.HammerlocksHunt|Tag.VeryLongMission, rarities=(100, 100, 100, 100, 100)),
         # Urine not reinteractable without savequit
     Mission("Follow The Glow", MissionDefinition("GD_Sage_SM_FollowGlow.M_Sage_FollowGlow"), tags=Tag.HammerlocksHunt),
@@ -1729,13 +1748,13 @@ Locations: Sequence[locations.Location] = (
         Pawn("PawnBalance_Mimic"),
         Attachment("ObjectGrade_MimicChest", 0, 1, 2, 3, configuration=6),
         Attachment("ObjectGrade_MimicChest_NoMimic", 0, 1, 2, 3, configuration=6),
-    tags=Tag.DragonKeep, rarities=(33,)),
+    tags=Tag.DragonKeep|Tag.Freebie, rarities=(33,)),
     Other("Flamerock Refuge Seraph Vendor",
         VendingMachine("GD_Aster_SeraphCrystalVendor.Balance.Balance_SeraphCrystalVendor", "GD_Aster_SeraphCrystalVendor.VendingMachine.VendingMachine_SeraphCrystal:BehaviorProviderDefinition_0.Behavior_Conditional_12.AttributeExpressionEvaluator_20"),
     tags=Tag.DragonKeep|Tag.Vendor),
     Mission("Roll Insight", MissionDefinition("GD_Aster_RollInsight.M_RollInsight"),
         RollInsight("Village_Mission.TheWorld:PersistentLevel.WillowInteractiveObject_297.MissionDirectivesDefinition_1", True, True, "Village_P"),
-    tags=Tag.DragonKeep),
+    tags=Tag.DragonKeep|Tag.Freebie),
     Mission("Fake Geek Guy", MissionDefinition("GD_Aster_FakeGeekGuy.M_FakeGeekGuy"), tags=Tag.DragonKeep),
         # Questions dont respawn until savequit
     Mission("Post-Crumpocalyptic", MissionDefinition("GD_Aster_Post-Crumpocalyptic.M_Post-Crumpocalyptic"), tags=Tag.DragonKeep|Tag.VeryLongMission),
@@ -1753,11 +1772,15 @@ Locations: Sequence[locations.Location] = (
     Enemy("Duke of Ork",
         Pawn("PawnBalance_Orc_WarlordGrug", "PawnBalance_Orc_WarlordTurge", transform=4),
     tags=Tag.DragonKeep|Tag.EvolvedEnemy),
-    Mission("Tree Hugger", MissionDefinition("GD_Aster_TreeHugger.M_TreeHugger"), TreeHugger(), tags=Tag.DragonKeep|Tag.LongMission),
+    Mission("Tree Hugger",
+        MissionDefinition("GD_Aster_TreeHugger.M_TreeHugger"),
+        TreeHugger(),
+    tags=Tag.DragonKeep|Tag.LongMission),
     Mission("Critical Fail", MissionDefinition("GD_Aster_CriticalFail.M_CriticalFail"), tags=Tag.DragonKeep),
         # Huts dont respawn without savequit
     Enemy("Arguk the Butcher", Pawn("PawnBalance_Orc_Butcher"), mission="Critical Fail"),
-    Mission("Lost Souls", MissionDefinition("GD_Aster_DemonicSouls.M_DemonicSouls"),
+    Mission("Lost Souls",
+        MissionDefinition("GD_Aster_DemonicSouls.M_DemonicSouls"),
         LostSouls("GD_Knight_LostSoulsNPC_Proto2.Character.Pawn_Knight_LostSoulsNPC_Proto2:MissionDirectivesDefinition_1", True, True, "Dead_Forest_P"),
     tags=Tag.DragonKeep), 
         # Dark Souls guy stays revived  after completion, and also until savequit with purge
@@ -1776,6 +1799,7 @@ Locations: Sequence[locations.Location] = (
     Enemy("Unmotivated Golem", Pawn("PawnBalance_Golem_SwordInStone"), mission="The Sword in The Stoner"),
     Enemy("Warlord Turge", Pawn("PawnBalance_Orc_WarlordTurge", evolved=4), tags=Tag.DragonKeep),
     Enemy("Spiderpants", Pawn("PawnBalance_Spiderpants"), tags=Tag.DragonKeep|Tag.VeryRareEnemy|Tag.SlowEnemy, rarities=(100, 100, 50, 50)),
+    # TODO: buff spawn rate
     Enemy("Iron GOD", Pawn("PawnBalance_Golem_Badass", transform=5), tags=Tag.DragonKeep|Tag.SlowEnemy|Tag.EvolvedEnemy|Tag.Raid),
     Mission("The Beard Makes The Man", MissionDefinition("GD_Aster_ClapTrapBeard.M_ClapTrapBeard"), tags=Tag.DragonKeep|Tag.LongMission),
         # Forge doesnt reset without savequit
@@ -1811,7 +1835,10 @@ Locations: Sequence[locations.Location] = (
     Mission("Winter is a Bloody Business", MissionDefinition("GD_Aster_WinterIsComing.M_WinterIsComing"), tags=Tag.DragonKeep|Tag.LongMission),
     Enemy("Canine", Pawn("PawnBalance_Knight_Winter_Canine"), mission="Winter is a Bloody Business"),
     Enemy("Molehill", Pawn("PawnBalance_Knight_Winter_Molehill"), mission="Winter is a Bloody Business"),
-    Mission("My Dead Brother (Kill Edgar)", MissionDefinition("GD_Aster_DeadBrother.M_MyDeadBrother"), MyDeadBrother(), tags=Tag.DragonKeep|Tag.LongMission), 
+    Mission("My Dead Brother (Kill Edgar)",
+        MissionDefinition("GD_Aster_DeadBrother.M_MyDeadBrother"),
+        MyDeadBrother(),
+    tags=Tag.DragonKeep|Tag.LongMission), 
     Enemy("Edgar", Pawn("PawnBalance_Wizard_DeadBrotherEdgar"), mission="My Dead Brother (Kill Edgar)"),
     Mission("My Dead Brother (Kill Simon)", MissionTurnInAlt("GD_Aster_DeadBrother.M_MyDeadBrother"), tags=Tag.DragonKeep|Tag.LongMission), 
     Enemy("Simon", Pawn("PawnBalance_Wizard_DeadBrotherSimon"), mission="My Dead Brother (Kill Edgar)"),
@@ -1836,12 +1863,12 @@ Locations: Sequence[locations.Location] = (
             "GD_DragonBridgeBoss.InteractiveObjects.IO_DragonBridgeBoss_LootExplosion:BehaviorProviderDefinition_0.Behavior_SpawnItems_30",
         inject=False),
     tags=Tag.DragonKeep|Tag.SlowEnemy, rarities=(33,33,33)),
-    Mission("Pet Butt Stallion", MissionDefinition("GD_Aster_PetButtStallion.M_PettButtStallion"), tags=Tag.DragonKeep),
-    Mission("Feed Butt Stallion", MissionDefinition("GD_Aster_FeedButtStallion.M_FeedButtStallion"), tags=Tag.DragonKeep),
+    Mission("Pet Butt Stallion", MissionDefinition("GD_Aster_PetButtStallion.M_PettButtStallion"), tags=Tag.DragonKeep|Tag.Freebie),
+    Mission("Feed Butt Stallion", MissionDefinition("GD_Aster_FeedButtStallion.M_FeedButtStallion"), tags=Tag.DragonKeep|Tag.Freebie),
     Other("Butt Stallion Fart",
         Behavior("GD_ButtStallion_Proto.Character.AIDef_ButtStallion_Proto:AIBehaviorProviderDefinition_1.Behavior_SpawnItems_66"),
-    tags=Tag.DragonKeep),
-    Mission("Find Murderlin's Temple", MissionDefinition("GD_Aster_TempleSlaughter.M_TempleSlaughterIntro"), tags=Tag.DragonKeep),
+    tags=Tag.DragonKeep|Tag.Freebie),
+    Mission("Find Murderlin's Temple", MissionDefinition("GD_Aster_TempleSlaughter.M_TempleSlaughterIntro"), tags=Tag.DragonKeep|Tag.Freebie),
     Mission("Magic Slaughter: Round 1", MissionDefinition("GD_Aster_TempleSlaughter.M_TempleSlaughter1"), tags=Tag.DragonKeep|Tag.Slaughter),
     Mission("Magic Slaughter: Round 2", MissionDefinition("GD_Aster_TempleSlaughter.M_TempleSlaughter2"), tags=Tag.DragonKeep|Tag.Slaughter),
     Mission("Magic Slaughter: Round 3", MissionDefinition("GD_Aster_TempleSlaughter.M_TempleSlaughter3"), tags=Tag.DragonKeep|Tag.Slaughter|Tag.LongMission),
@@ -1874,7 +1901,7 @@ Locations: Sequence[locations.Location] = (
     Other("Dahl Abandon Grave",
         Behavior("GD_Anemone_Balance_Treasure.InteractiveObjects.InteractiveObj_Brothers_Pile:BehaviorProviderDefinition_13.Behavior_SpawnItems_21"),
         DahlAbandonGrave(),
-    tags=Tag.FightForSanctuary),
+    tags=Tag.FightForSanctuary|Tag.Freebie),
     Enemy("Loot Nest", Pawn("PawnBalance_Infected_Mimic"), tags=Tag.FightForSanctuary),
     Enemy("New Pandora Soldier",
         Pawn(
@@ -1887,13 +1914,14 @@ Locations: Sequence[locations.Location] = (
             "PawnBalance_NP_Medic"
         ),
     tags=Tag.FightForSanctuary|Tag.MobFarm),
-    Mission("The Oddest Couple", MissionDefinition("GD_Anemone_Side_OddestCouple.M_Anemone_OddestCouple"),
+    Mission("The Oddest Couple",
+        MissionDefinition("GD_Anemone_Side_OddestCouple.M_Anemone_OddestCouple"),
         OddestCouple("OldDust_Mission_Side.TheWorld:PersistentLevel.WillowInteractiveObject_2", "OldDust_P"),
     tags=Tag.FightForSanctuary),
     Enemy("Pizza-Addicted Skag", Pawn("PawnBalance_Infected_Moxxi_Skag"), mission="The Oddest Couple"),
     Mission("Space Cowboy", MissionDefinition("GD_Anemone_Side_SpaceCowboy.M_Anemone_SpaceCowboy"), tags=Tag.FightForSanctuary|Tag.LongMission),
         # Midget toilet porn doesnt respawn without savequit
-    Enemy("Loot Midget (Space Cowboy)", SpaceCowboyMidget("PawnBalance_LootMidget_Marauder"), mission="Space Cowboy"),
+    Enemy("Loot Midget (Space Cowboy)", SpaceCowboyMidget("PawnBalance_LootMidget_Marauder"), mission="Space Cowboy", rarities=(50,)),
     Enemy("Sand Worm",
           Pawn("PawnBalance_SandWorm_Queen", "PawnBalance_InfectedSandWorm"),
     tags=Tag.FightForSanctuary|Tag.MobFarm),
@@ -1921,20 +1949,23 @@ Locations: Sequence[locations.Location] = (
     tags=Tag.FightForSanctuary),
         # ECHO mission giver not interactable after completion
     Mission("Paradise Found", MissionTurnIn("GD_Anemone_Plot_Mission060.M_Anemone_PlotMission060"), tags=Tag.FightForSanctuary|Tag.Excluded),
-    Mission("Sirentology", MissionDefinition("GD_Anemone_Side_Sirentology.M_Anemone_Sirentology"), Sirentology(), tags=Tag.FightForSanctuary|Tag.LongMission),
+    Mission("Sirentology",
+        MissionDefinition("GD_Anemone_Side_Sirentology.M_Anemone_Sirentology"),
+        Sirentology(),
+    tags=Tag.FightForSanctuary|Tag.LongMission),
     Mission("My Brittle Pony", MissionDefinition("GD_Anemone_Side_MyBrittlePony.M_Anemone_MyBrittlePony"), tags=Tag.FightForSanctuary|Tag.LongMission),
         # Brick and enemy waves dont respawn without savequit
     Other("Butt Stallion with Mysterious Amulet",
         Behavior("GD_Anem_ButtStallion.Character.AIDef_Anem_ButtStallion:AIBehaviorProviderDefinition_1.Behavior_SpawnItems_18"),
         ButtstallionWithAmulet(),
-    tags=Tag.DragonKeep|Tag.FightForSanctuary, content=Tag.FightForSanctuary),
+    tags=Tag.DragonKeep|Tag.FightForSanctuary|Tag.Freebie, content=Tag.FightForSanctuary),
     Mission("BFFFs", MissionDefinition("GD_Anemone_Side_EyeSnipers.M_Anemone_EyeOfTheSnipers"), tags=Tag.FightForSanctuary),
         # Lieutenants dont respawn without savequit
     Enemy("Lt. Bolson", Pawn("PawnBalance_Lt_Bolson"), tags=Tag.FightForSanctuary|Tag.SlowEnemy),
     Enemy("Lt. Angvar", Pawn("PawnBalance_NP_Lt_Angvar"), tags=Tag.FightForSanctuary|Tag.SlowEnemy),
     Enemy("Lt. Tetra", Pawn("PawnBalance_NP_Lt_Tetra"), tags=Tag.FightForSanctuary|Tag.SlowEnemy),
     Enemy("Lt. Hoffman", Pawn("PawnBalance_NP_Lt_Hoffman"), tags=Tag.FightForSanctuary|Tag.SlowEnemy),
-    Mission("Chief Executive Overlord", MissionDefinition("GD_Anemone_Side_VaughnPart3.M_Anemone_VaughnPart3"), tags=Tag.FightForSanctuary),
+    Mission("Chief Executive Overlord", MissionDefinition("GD_Anemone_Side_VaughnPart3.M_Anemone_VaughnPart3"), tags=Tag.FightForSanctuary|Tag.Freebie),
     Mission("A Most Cacophonous Lure", MissionDefinition("GD_Anemone_Side_RaidBoss.M_Anemone_CacophonousLure"), tags=Tag.FightForSanctuary|Tag.Raid),
         # Haderax doesnt respawn without savequit
     Enemy("Haderax The Invincible",
@@ -1978,7 +2009,7 @@ Locations: Sequence[locations.Location] = (
     Mission("Grandma Flexington's Story",
         MissionDefinition("GD_Allium_GrandmaFlexington.M_ListenToGrandma"),
         Behavior("GD_Allium_TorgueGranma.Character.AIDef_Torgue:AIBehaviorProviderDefinition_0.Behavior_SpawnItems_6"),
-    tags=Tag.WattleGobbler|Tag.LongMission),
+    tags=Tag.WattleGobbler|Tag.LongMission|Tag.Freebie),
     Mission("Grandma Flexington's Story: Raid Difficulty", MissionDefinition("GD_Allium_Side_GrandmaRaid.M_ListenToGrandmaRaid"),
         Behavior("GD_Allium_TorgueGranma.Character.AIDef_Torgue:AIBehaviorProviderDefinition_0.Behavior_SpawnItems_3"),
         GrandmaStoryRaid(),
@@ -2066,7 +2097,7 @@ Locations: Sequence[locations.Location] = (
 
 
 
-    Mission("Dr. T and the Vault Hunters", MissionDefinition("GD_Lobelia_UnlockDoor.M_Lobelia_UnlockDoor"), tags=Tag.DigistructPeak),
+    Mission("Dr. T and the Vault Hunters", MissionDefinition("GD_Lobelia_UnlockDoor.M_Lobelia_UnlockDoor"), tags=Tag.DigistructPeak|Tag.Freebie),
     Mission("A History of Simulated Violence", MissionDefinition("GD_Lobelia_TestingZone.M_TestingZone"), tags=Tag.DigistructPeak|Tag.VeryLongMission),
     DigiEnemy("Digistruct Assassin Wot", Pawn("PawnBalance_Assassin1_Digi"), fallback="Assassin Wot", tags=Tag.DigistructPeak|Tag.DigistructEnemy, rarities=(100, 100, 50)),
     DigiEnemy("Digistruct Assassin Oney", Pawn("PawnBalance_Assassin2_Digi"), fallback="Assassin Oney", tags=Tag.DigistructPeak|Tag.DigistructEnemy, rarities=(100, 100, 50)),
@@ -2095,21 +2126,20 @@ Locations: Sequence[locations.Location] = (
 
 
 """
+
 TODO:
-Fix leviathan's loot fling with smol items
-BL2fix midget compatibility
-prevent mcshooty from despawning after completion?
+- Fix leviathan's loot fling with smol items
+- BL2fix midget compatibility
+- prevent mcshooty from despawning after completion?
 
 LOGIC:
-    buttstallion w/ amulet requires amulet
-    pot o' gold requires pot o' gold
-    peak enemies past OP 0 requires moxxi's endowment
-    haderax launcher chest requires toothpick + retainer
+- buttstallion w/ amulet requires amulet
+- pot o' gold requires pot o' gold
+- peak enemies past OP 0 requires moxxi's endowment
+- haderax launcher chest requires toothpick + retainer
 
+CUT:
 - pot of gold "boosters"
-
-- haderax launcher chest
-    # logic would require toothpick and retainer
 - loot goon chests
 - loot loader chests
 - slot machines

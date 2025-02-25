@@ -50,12 +50,7 @@ class PlaythroughDelegate(MapDropper):
         self.playthrough = 2
 
 
-_playthrough_delegate = PlaythroughDelegate()
-
-
 def Enable() -> None:
-    _playthrough_delegate.enable()
-
     RunHook(
         "WillowGame.WillowPlayerController.AcceptMission",
         "LootRandomizer",
@@ -91,8 +86,6 @@ def Enable() -> None:
 
 
 def Disable() -> None:
-    _playthrough_delegate.disable()
-
     RemoveHook(
         "WillowGame.WillowPlayerController.AcceptMission",
         "LootRandomizer",
@@ -161,8 +154,6 @@ def _CompleteMission(caller: UObject, _f: UFunction, params: FStruct) -> bool:
     mission_list = pc.MissionPlaythroughs[playthrough].MissionList
     mission_data = mission_list[mission_index]
 
-    mission_definition: Optional[MissionDefinition] = None
-
     delegates: List[Callable[[], None]] = []
 
     for mission_dropper in registry:
@@ -171,13 +162,10 @@ def _CompleteMission(caller: UObject, _f: UFunction, params: FStruct) -> bool:
                 delegates.append(dropper.completed)
 
         if mission_dropper.should_inject(mission_data):
-            mission_definition = mission_dropper
+            mission_dropper.inject(mission_data)
+            delegates.append(mission_dropper.revert)
 
-    if mission_definition:
-        mission_definition.inject(mission_data)
-        do_next_tick(*delegates, mission_definition.revert)
-    else:
-        do_next_tick(*delegates)
+    do_next_tick(*delegates)
 
     return True
 
@@ -294,6 +282,8 @@ class MissionDefinition(MissionDropper, RegistrantDropper):
             self.reward.ExperienceRewardPercentage.BaseValueScaleConstant
         )
 
+        self.repeatable = self.uobject.bRepeatable
+
         self.prepare_attributes()
 
     def disable(self) -> None:
@@ -306,8 +296,6 @@ class MissionDefinition(MissionDropper, RegistrantDropper):
         self.revert_attributes()
 
     def prepare_attributes(self) -> None:
-        self.repeatable = self.uobject.bRepeatable
-
         self.mission_weapon = self.uobject.MissionWeapon
         if self.mission_weapon and self.block_weapon:
             KeepAlive(self.mission_weapon)
@@ -330,8 +318,7 @@ class MissionDefinition(MissionDropper, RegistrantDropper):
                 self.uobject.NextMissionInChain = None
 
     def revert_attributes(self) -> None:
-        if seed.AppliedSeed and self.location in seed.AppliedSeed.locations:
-            self.uobject.bRepeatable = self.repeatable
+        self.uobject.bRepeatable = self.repeatable
 
         if self.mission_weapon and self.block_weapon:
             self.uobject.MissionWeapon = self.mission_weapon
@@ -360,6 +347,7 @@ class MissionDefinition(MissionDropper, RegistrantDropper):
     def should_inject(self, mission_data: FStruct) -> bool:
         if not self.location.item:
             return False
+
         progress = tuple(mission_data.ObjectivesProgress)
         alt_reward, _ = self.uobject.ShouldGrantAlternateReward(progress)
         return not alt_reward
@@ -458,6 +446,9 @@ class MissionTurnInAlt(MissionTurnIn):
         return self.uobject.AlternativeReward
 
     def should_inject(self, mission_data: FStruct) -> bool:
+        if not self.location.item:
+            return False
+
         return not super().should_inject(mission_data)
 
 
@@ -544,9 +535,6 @@ class MissionGiver(MissionObject):
                 directives = convert_struct(giver.MissionDirectives)
                 directives.append((missiondef, self.begins, self.ends, 0))
                 giver.MissionDirectives = directives
-
-            if not is_client():
-                get_missiontracker().RegisterMissionDirector(giver)
         else:
             directives = tuple(
                 convert_struct(directive)
@@ -554,8 +542,6 @@ class MissionGiver(MissionObject):
                 if directive.MissionDefinition != missiondef
             )
             giver.MissionDirectives = directives
-            if not is_client() and not len(directives):
-                get_missiontracker().UnregisterMissionDirector(giver)
 
         return giver
 

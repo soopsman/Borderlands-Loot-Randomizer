@@ -1,10 +1,4 @@
-# Borderlands Loot Randomizer
-
-[Discord](https://discord.gg/C37HvmvBbS)&nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;&nbsp;[Donate](https://streamlabs.com/mopioid/tip)
-
-![Face McTwisty](https://i.imgur.com/OIZ9Ab4.jpeg)
-
-## Note About This Fork
+# Note About This Fork
 
 This fork of Loot Randomizer integrates the online tracker functionality from [bl2_loot_tracker](https://github.com/soopsman/bl2_loot_tracker) directly into the mod.
 
@@ -21,7 +15,11 @@ If you previously used bl2_loot_tracker, you can migrate your existing GitHub se
 
 You are required to launch the game once with this fork of the mod enabled to create the entries in LootRandomizer.json.
 
-## Loot Randomizer
+# Borderlands Loot Randomizer
+
+[Discord](https://discord.gg/C37HvmvBbS)&nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;&nbsp;[Donate](https://streamlabs.com/mopioid/tip)
+
+![Face McTwisty](https://i.imgur.com/OIZ9Ab4.jpeg)
 
 Loot Randomizer is a mod for Borderlands 2 and The Pre-Sequel that provides repeated new playthrough experiences, by means of shuffling every item in the game into new drop locations.
 

@@ -6,7 +6,7 @@
 
 ## Note About This Fork
 
-This fork of loot randomizer integrates the online tracker functionality from [bl2_loot_tracker](https://github.com/soopsman/bl2_loot_tracker) directly into the mod.
+This fork of Loot Randomizer integrates the online tracker functionality from [bl2_loot_tracker](https://github.com/soopsman/bl2_loot_tracker) directly into the mod.
 
 The settings can be found in the Configure Seed Tracker section.
 

@@ -320,7 +320,7 @@ class Location:
             return
 
         # We will be displaying the message for two *real time* seconds.
-        duration = 2.0
+        duration = 4.0
         # Clear any previous message that may be displayed.
         HUDMovie.ClearTrainingText()
         # Present the training message as per the method's signature:

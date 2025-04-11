@@ -461,6 +461,14 @@ HintDisplay = CallbackSpinner(
     StartingValue="Vague",
 )
 
+PopUpDrops = ModMenu.Options.Boolean(
+    Caption="Pop Up Drops",
+    Description=(
+        "Show a pop up for loot randomizer drops from enemies."
+    ),
+    StartingValue=False,
+)
+
 OnlineTracker = ModMenu.Options.Boolean(
     Caption="Online Tracker",
     Description=(
@@ -549,6 +557,7 @@ Options: Sequence[ModMenu.Options.Base] = (
         ),
     ),
     HintDisplay,
+    PopUpDrops,
     CallbackField(
         Caption="Reset Dismissed Hints",
         Description=(

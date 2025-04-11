@@ -3,7 +3,7 @@ from __future__ import annotations
 from unrealsdk import Log, FindObject, GetEngine
 from unrealsdk import RunHook, RemoveHook, UObject, UFunction, FStruct
 
-from . import options, hints, items, seed
+from . import options, hints, items, seed, enemies
 from .defines import *
 from .items import ItemPool
 
@@ -277,6 +277,7 @@ class Location:
         if self.item is items.DudItem:
             if seed.AppliedSeed:
                 seed.AppliedSeed.update_tracker(self, True)
+                self.Popup(self.item.name)
             return (self.hint_pool,) * count
 
         self.item.prepare()
@@ -298,11 +299,33 @@ class Location:
         if seed.AppliedSeed:
             if item_seen:
                 seed.AppliedSeed.update_tracker(self, True)
+                self.Popup(self.item.name)
             elif hint_seen:
                 seed.AppliedSeed.update_tracker(self, False)
+                self.Popup(self.item.hint)
 
         random.shuffle(pools)
         return pools
+    
+    def Popup(self, message) -> None:
+        if isinstance(self, enemies.Enemy) == False or options.PopUpDrops.CurrentValue == False:
+            return
+
+        """Presents a "training" message to the user with the given string."""
+        # Get the graphics object for our player controller's HUD.
+        HUDMovie = get_pc().GetHUDMovie()
+
+        # If there is no graphics object, we cannot display feedback.
+        if HUDMovie is None:
+            return
+
+        # We will be displaying the message for two *real time* seconds.
+        duration = 2.0
+        # Clear any previous message that may be displayed.
+        HUDMovie.ClearTrainingText()
+        # Present the training message as per the method's signature:
+        #     AddTrainingText(string MessageString, string TitleString, float Duration, Color DrawColor, string HUDInitializationFrame, bool PausesGame, float PauseContinueDelay, PlayerReplicationInfo Related_PRI1, optional bool bIsntActuallyATrainingMessage, optional WillowPlayerController.EBackButtonScreen StatusMenuTab, optional bool bMandatory)
+        HUDMovie.AddTrainingText(message, "Loot Drop", duration, (), "", False, 0, get_pc().PlayerReplicationInfo, True)
 
     def __str__(self) -> str:
         raise NotImplementedError

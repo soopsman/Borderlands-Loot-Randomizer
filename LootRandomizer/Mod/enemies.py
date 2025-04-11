@@ -4,7 +4,7 @@ from unrealsdk import Log
 from unrealsdk import RunHook, RemoveHook, UObject, UFunction, FStruct
 
 from .defines import *
-from . import locations, seed
+from . import seed
 from .locations import Location, RegistrantDropper
 
 from typing import Any, Optional, List, Set
